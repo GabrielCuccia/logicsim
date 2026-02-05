@@ -2,12 +2,12 @@ import { LayoutGrid, Zap } from "lucide-react";
 
 export default function Header() {
     return (
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm z-20 relative">
+        <header className="h-22 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm z-20 relative">
 
             <div className="flex items-center gap-3">
                 <div>
-                    <h1 className="font-bold text-slate-800 text-2xl leading-tight">Gate Learning</h1>
 
+                    <img src="/gate-learning-logo.png" alt="gate-learning" className="w-42" />
                 </div>
             </div>
 
