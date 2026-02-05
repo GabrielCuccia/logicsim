@@ -6,7 +6,7 @@ export default function Header() {
 
             <div className="flex items-center gap-3">
                 <div>
-                    <h1 className="font-bold text-slate-800 text-lg leading-tight">LogicSim</h1>
+                    <h1 className="font-bold text-slate-800 text-2xl leading-tight">Gate Learning</h1>
 
                 </div>
             </div>
