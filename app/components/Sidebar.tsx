@@ -12,8 +12,8 @@ export default function Sidebar() {
     const components = {
         inputs: [
             { type: 'switch', label: 'Switch', icon: ToggleRight, color: 'text-emerald-500', bg: 'bg-emerald-100' },
-            { type: 'push-button', label: 'Push Button', icon: MousePointerClick, color: 'text-emerald-500', bg: 'bg-emerald-100' },
-            { type: 'clock', label: 'Clock', icon: Clock, color: 'text-emerald-500', bg: 'bg-emerald-100' },
+            //{ type: 'push-button', label: 'Push Button', icon: MousePointerClick, color: 'text-emerald-500', bg: 'bg-emerald-100' },
+            //{ type: 'clock', label: 'Clock', icon: Clock, color: 'text-emerald-500', bg: 'bg-emerald-100' },
         ],
         gates: [
             { type: 'and-gate', label: 'AND Gate', icon: "/compuerta-and.png", color: 'text-blue-500', bg: 'bg-blue-100' },
@@ -23,7 +23,7 @@ export default function Sidebar() {
         ],
         outputs: [
             { type: 'light', label: 'Bulb', icon: Lightbulb, color: 'text-amber-500', bg: 'bg-amber-100' },
-            { type: 'display', label: 'Display', icon: Monitor, color: 'text-amber-500', bg: 'bg-amber-100' },
+            //{ type: 'display', label: 'Display', icon: Monitor, color: 'text-amber-500', bg: 'bg-amber-100' },
         ]
     };
 

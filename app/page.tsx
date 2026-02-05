@@ -46,7 +46,7 @@ const edgeTypes = {
 const initialNodes: Node[] = [
   { id: '1', position: { x: 50, y: 50 }, data: { label: 'Switch 1', active: false }, type: 'switch' },
   { id: '2', position: { x: 50, y: 150 }, data: { label: 'Switch 2', active: true }, type: 'switch' },
-  { id: '3', position: { x: 250, y: 100 }, data: { label: 'AND Gate' }, type: 'gate' },
+  { id: '3', position: { x: 250, y: 100 }, data: { label: 'AND Gate' }, type: 'and-gate' },
   { id: '4', position: { x: 450, y: 100 }, data: { label: 'Light', active: false }, type: 'light' },
 ];
 const initialEdges: Edge[] = [
