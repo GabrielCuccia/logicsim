@@ -1,233 +1,246 @@
-"use client"
+"use client";
 
+import { use, useState, useEffect } from "react";
+import Link from "next/link";
 import {
-  addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
-  EdgeChange,
-  NodeChange,
-  ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-  BackgroundVariant,
-  Connection,
-  Node,
-  Edge,
-  ReactFlowProvider,
-  useReactFlow,
-  ReactFlowInstance,
-  OnSelectionChangeParams
-} from "@xyflow/react";
-import { useCallback, useState, useRef, useMemo, useEffect } from "react";
-import '@xyflow/react/dist/style.css';
-import { SwitchNode, GateNode, LightNode, CustomEdge, AndGateNode, OrGateNode, NotGateNode, XorGateNode, PushButtonNode, ClockNode, DisplayNode } from "./components/CustomNodes";
-import Sidebar from "./components/Sidebar";
-import PropertiesSidebar from "./components/PropertiesSidebar";
-import { useLogicEngine } from "./hooks/useLogicEngine";
-import Header from "./components/Header";
-const nodeTypes = {
-  switch: SwitchNode,
-  'push-button': PushButtonNode,
-  clock: ClockNode,
-  gate: GateNode, // Keep generic wrapper if needed
-  'and-gate': AndGateNode,
-  'or-gate': OrGateNode,
-  'not-gate': NotGateNode,
-  'xor-gate': XorGateNode,
-  light: LightNode,
-  display: DisplayNode,
-};
+  Cpu,
+  Zap,
+  Share2,
+  Layers,
+  Target,
+  Moon,
+  CheckCircle2,
+  ArrowRight,
+  Play
+} from "lucide-react";
+import HeroCircuit from "./components/home/HeroCircuit";
 
-const edgeTypes = {
-  'custom-edge': CustomEdge,
-};
-
-const initialNodes: Node[] = [
-  { id: '1', position: { x: 50, y: 50 }, data: { label: 'Switch 1', active: false }, type: 'switch' },
-  { id: '2', position: { x: 50, y: 150 }, data: { label: 'Switch 2', active: true }, type: 'switch' },
-  { id: '3', position: { x: 250, y: 100 }, data: { label: 'AND Gate' }, type: 'and-gate' },
-  { id: '4', position: { x: 450, y: 100 }, data: { label: 'Light', active: false }, type: 'light' },
-];
-const initialEdges: Edge[] = [
-  { id: 'e1-3', source: '1', target: '3', targetHandle: 'a', animated: true, type: 'custom-edge', style: { stroke: '#9ca3af', strokeWidth: 2, strokeDasharray: '5,5' } }, // Inactive (Gray)
-  { id: 'e2-3', source: '2', target: '3', targetHandle: 'b', animated: true, type: 'custom-edge', style: { stroke: '#3b82f6', strokeWidth: 2, strokeDasharray: '5,5' } }, // Active (Blue)
-  { id: 'e3-4', source: '3', target: '4', animated: true, type: 'custom-edge', style: { stroke: '#9ca3af', strokeWidth: 2, strokeDasharray: '5,5' } },
-];
-
-// let id = 5;
-const getId = () => `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-function Flow() {
-  const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes] = useState<Node[]>(initialNodes);
-  const [edges, setEdges] = useState<Edge[]>(initialEdges);
-  const { screenToFlowPosition } = useReactFlow();
-  const { runSimulation } = useLogicEngine();
-
-  // Find the selected node
-  const selectedNode = useMemo(() => nodes.find((node) => node.selected) || null, [nodes]);
-
-  // Trigger simulation when nodes/edges change structure (connections), or simply use an effect.
-  // We need to be careful not to create infinite loops.
-  // runSimulation updates nodes/edges, so we can't just put it in useEffect([nodes, edges]).
-  // We should run it manually on specific events OR use a debounce/ref check logic in the hook.
-  // HOWEVER, our hook `runSimulation` does a check `if (changed)`.
-  // To avoid loop: The runSimulation sets state ONLY if values change. 
-  // If values match, it doesn't set state, so effect won't re-trigger. 
-  // But strictly `useEffect([nodes, edges])` is dangerous.
-  // Better approach: Run simulation on:
-  // 1. Connection created/removed (onConnect, onDelete) (Handled by edges change?)
-  // 2. Node added (onDrop) - though initially inactive.
-  // 3. User Interaction (Toggle) - This is the main driver.
-
-  // Let's rely on a manual trigger or a "Simulation Effect" that only runs when *topology* changes, 
-  // and separate "State" changes. 
-  // For now, let's try running it when *connections* change (edges) and when *inputs* are toggled.
-
-  useEffect(() => {
-    runSimulation(nodes, edges, setNodes, setEdges);
-  }, [edges.length, edges.map(e => e.source + e.target).join(',')]); // Run when topology changes
-
-
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nodesSnapshot) => applyNodeChanges(changes, nodesSnapshot)),
-    [],
-  );
-  const onEdgesChange = useCallback(
-    (changes: EdgeChange<{ id: string; source: string; target: string; }>[]) => setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot)),
-    [],
-  );
-  const onConnect = useCallback(
-    (params: Connection) => {
-      setEdges((edgesSnapshot) => {
-        const newEdges = addEdge({ ...params, animated: true, type: 'custom-edge' }, edgesSnapshot);
-        // Verify simulation after connection (needs state access? runSimulation handles it via effect or next render)
-        return newEdges;
-      });
-    },
-    [],
-  );
-
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-
-      const type = event.dataTransfer.getData('application/reactflow');
-
-      // check if the dropped element is valid
-      if (typeof type === 'undefined' || !type) {
-        return;
-      }
-
-      const position = screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
-
-      const newNode: Node = {
-        id: getId(),
-        type,
-        position,
-        data: { label: `${type} node`, active: false },
-      };
-
-      setNodes((nds) => nds.concat(newNode));
-    },
-    [screenToFlowPosition],
-  );
-
-  const onLabelChange = useCallback((id: string, newLabel: string) => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === id) {
-          return { ...node, data: { ...node.data, label: newLabel } };
-        }
-        return node;
-      })
-    );
-  }, []);
-
-  const onDeleteNode = useCallback((id: string) => {
-    setNodes((nds) => nds.filter((node) => node.id !== id));
-    setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
-  }, []);
-
-  // Interaction Handler
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    if (node.type === 'switch' || node.type === 'push-button') {
-      // Toggle State
-      setNodes((nds) => {
-        const newNodes = nds.map(n => {
-          if (n.id === node.id) {
-            return { ...n, data: { ...n.data, active: !n.data.active } };
-          }
-          return n;
-        });
-
-        // Immediate simulation trigger is tricky inside setState reducer.
-        // We'll trust useEffect or call runSimulation here with new state.
-        // Taking the simple route: update state -> waiting for render -> useEffect triggers? 
-        // NO, useEffect above only listens to Edges topology.
-        // We need to trigger simulation on STATE change of inputs.
-
-        // We can manually call runSimulation with the NEW nodes and current edges.
-        setTimeout(() => { // Small timeout to allow state to settle or just pass computed array
-          runSimulation(newNodes, edges, setNodes, setEdges);
-        }, 0);
-        return newNodes;
-      });
-    }
-  }, [edges, runSimulation]);
-
-
-
-
-  // ... existing code ...
-
+export default function LandingPage() {
   return (
-    <div className="flex flex-col w-screen h-screen overflow-hidden">
-      <Header />
-      <div className="flex flex-grow w-full h-full overflow-hidden">
-        <Sidebar />
-        <div className="flex-grow h-full relative" ref={reactFlowWrapper}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            onNodeClick={onNodeClick}
-            fitView
-          >
-            <Background variant={BackgroundVariant.Lines} gap={24} size={1} color="#f0f0f0" className="bg-white" />
-            <Controls />
-            <MiniMap />
-          </ReactFlow>
+    <div className="min-h-screen bg-white">
+      {/* Navbar */}
+      <nav className="fixed w-full z-50 bg-white/80 backdrop-blur-md h-20 flex items-center justify-center  border-b border-gray-100">
+        <div className="w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex w-full justify-between h-16 items-center">
+            <div className="flex items-center gap-2">
+              <img src="/gate-learning-logo.png" alt="Gate Learning Logo" className="w-34" />
+            </div>
+            <div className="hidden md:flex items-center gap-8">
+              <Link href="#features" className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors">
+                Características
+              </Link>
+              <Link href="#how-it-works" className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors">
+                Cómo funciona
+              </Link>
+              <Link
+                href="/dashboard"
+                className="bg-blue-600 text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-blue-700 transition-all hover:shadow-lg hover:shadow-blue-500/25"
+              >
+                Comenzar
+              </Link>
+            </div>
+          </div>
         </div>
-        <PropertiesSidebar
-          selectedNode={selectedNode}
-          onLabelChange={onLabelChange}
-          onDelete={onDeleteNode}
-        />
-      </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="lg:grid lg:grid-cols-2 lg:gap-16 items-center">
+            <div className="mb-12 lg:mb-0">
+              <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 leading-[1.1] mb-6">
+                Simula circuitos lógicos digitales en <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">tiempo real</span>
+              </h1>
+              <p className="text-lg text-gray-600 mb-8 leading-relaxed max-w-lg">
+                Diseña, construye y prueba circuitos lógicos complejos con una interfaz intuitiva. Aprende electrónica digital de forma interactiva sin limitaciones.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex justify-center items-center px-8 py-3.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all hover:shadow-xl hover:shadow-blue-500/20"
+                >
+                  Explorar proyectos
+                  <ArrowRight className="ml-2 w-4 h-4" />
+                </Link>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex justify-center items-center px-8 py-3.5 bg-white text-gray-700 border border-gray-200 rounded-lg font-medium hover:bg-gray-50 hover:border-gray-300 transition-all"
+                >
+                  Ver desafíos
+                </Link>
+              </div>
+            </div>
+            <div className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-r from-blue-100 to-cyan-50 rounded-2xl blur-3xl opacity-50 -z-10"></div>
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 overflow-hidden">
+                {/* Mockup Image Placeholder - Replace with actual screenshot or constructed UI */}
+                {/* Interactive Circuit Hero */}
+                <div className="bg-slate-50 rounded-xl aspect-[4/3] w-full h-full relative overflow-hidden shadow-inner border border-gray-200">
+                  <HeroCircuit />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-24 bg-slate-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Características principales</h2>
+            <p className="text-gray-600">
+              Todo lo que necesitas para aprender y crear circuitos lógicos, desde lo más básico hasta diseños avanzados.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <FeatureCard
+              icon={<Zap className="w-6 h-6 text-orange-500" />}
+              title="Simulación en tiempo real"
+              description="Ve los resultados instantáneamente mientras diseñas tus circuitos e interactúas con interruptores."
+              color="bg-orange-50"
+            />
+            <FeatureCard
+              icon={<Target className="w-6 h-6 text-red-500" />}
+              title="Desafíos progresivos"
+              description="Aprende desde lo básico hasta circuitos complejos con un sistema de desafíos estructurados tipo 'Nand to Tetris'."
+              color="bg-red-50"
+            />
+            <FeatureCard
+              icon={<Layers className="w-6 h-6 text-indigo-500" />}
+              title="Componentes versátiles"
+              description="Dispone de AND, OR, NOT, XOR, Relays, Latches y más para crear cualquier circuito digital imaginable."
+              color="bg-indigo-50"
+            />
+            <FeatureCard
+              icon={<Share2 className="w-6 h-6 text-green-500" />}
+              title="Visualización clara"
+              description="Conexiones visuales y estados de componentes fáciles de entender con indicadores de color."
+              color="bg-green-50"
+            />
+            <FeatureCard
+              icon={<Cpu className="w-6 h-6 text-purple-500" />}
+              title="Guarda tus proyectos"
+              description="Crea y organiza múltiples proyectos para explorar diferentes ideas y aprender a tu ritmo."
+              color="bg-purple-50"
+            />
+            <FeatureCard
+              icon={<Moon className="w-6 h-6 text-yellow-500" />}
+              title="Interfaz moderna"
+              description="Interfaz cómoda y estética pensada para trabajar durante horas sin fatiga visual."
+              color="bg-yellow-50"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* How it Works Section */}
+      <section id="how-it-works" className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Cómo empezar</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Comienza tu viaje en la electrónica digital en cuatro sencillos pasos.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-8 relative">
+            {/* Connector Line (Desktop) */}
+            <div className="hidden md:block absolute top-6 left-[10%] right-[10%] h-0.5 bg-gray-100 -z-10"></div>
+
+            <StepCard
+              number="1"
+              title="Crea un proyecto"
+              description="Comienza un nuevo proyecto desde el dashboard o elige un desafío."
+            />
+            <StepCard
+              number="2"
+              title="Arrastra componentes"
+              description="Selecciona compuertas lógicas e inputs/outputs de la barra lateral."
+            />
+            <StepCard
+              number="3"
+              title="Conecta con wires"
+              description="Crea conexiones entre componentes arrastrando desde los puertos."
+            />
+            <StepCard
+              number="4"
+              title="Simula"
+              description="Prueba tu circuito e interactúa con él para ver los resultados en vivo."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-blue-600">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+            ¿Listo para comenzar?
+          </h2>
+          <p className="text-blue-100 text-lg mb-10 max-w-2xl mx-auto">
+            Crea tu primer circuito lógico ahora mismo sin necesidad de registrarte. Explora el poder de la lógica digital.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/dashboard"
+              className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl"
+            >
+              Ir al simulador
+            </Link>
+            <Link
+              href="/dashboard"
+              className="bg-blue-700 text-white border border-blue-500 px-8 py-4 rounded-lg font-bold hover:bg-blue-800 transition-all"
+            >
+              Explorar desafíos
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-12 bg-white border-t border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-2">
+            <div className="bg-gray-100 p-1.5 rounded-lg">
+              <Cpu className="w-5 h-5 text-gray-600" />
+            </div>
+            <span className="text-lg font-bold text-gray-800">Gate Learning</span>
+          </div>
+          <p className="text-gray-500 text-sm">
+            © 2026 Gate Learning. Aprende electrónica digital de forma interactiva.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
 
-export default function Home() {
+function FeatureCard({ icon, title, description, color }: { icon: React.ReactNode, title: string, description: string, color: string }) {
   return (
-    <ReactFlowProvider>
-      <Flow />
-    </ReactFlowProvider>
+    <div className="p-6 rounded-2xl bg-white border border-gray-100 hover:shadow-lg transition-all duration-300 group">
+      <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
+        {icon}
+      </div>
+      <h3 className="text-xl font-bold text-gray-900 mb-3">{title}</h3>
+      <p className="text-gray-600 leading-relaxed text-sm">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function StepCard({ number, title, description }: { number: string, title: string, description: string }) {
+  return (
+    <div className="relative bg-white p-6 pt-0 md:bg-transparent md:p-0">
+      <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xl mb-6 shadow-lg shadow-blue-200">
+        {number}
+      </div>
+      <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
+      <p className="text-gray-600 text-sm leading-relaxed">
+        {description}
+      </p>
+    </div>
   );
 }

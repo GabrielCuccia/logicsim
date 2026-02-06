@@ -6,7 +6,7 @@ export const useLogicEngine = () => {
     // but typically we pass the setters.
 
     // Evaluate a single node's output based on its inputs
-    const evaluateNode = (node: Node, inputs: boolean[]) => {
+    const evaluateNode = (node: Node, incomingEdges: Edge[], nodeStates: Record<string, boolean>) => {
         const type = node.type;
 
         // Sources (Manual control)
@@ -17,32 +17,95 @@ export const useLogicEngine = () => {
         // clock (Logic needed: interval) - for now behave as manual or static
         if (type === 'clock') return node.data.active as boolean;
 
+        // Power Source: Always True
+        if (type === 'power-source') return true;
+
+        // Helper to get values from edges
+        const inputValues = incomingEdges.map(e => nodeStates[e.source] || false);
+
         // Gates
         if (type === 'gate' || type === 'and-gate') {
             // Implicitly treat missing connections as FALSE. 
             // If connected inputs < 2, it means we have unconnected ports (assuming 2-input gate).
             // Logic: X AND 0 = 0.
-            if (inputs.length < 2) return false;
-            return inputs.every(v => v === true);
+            if (inputValues.length < 2) return false;
+            return inputValues.every(v => v === true);
         }
         if (type === 'or-gate') {
-            return inputs.some(v => v === true);
+            return inputValues.some(v => v === true);
         }
         if (type === 'not-gate') {
             // NOT only considers the first input. If 0 inputs, assumes FALSE input -> TRUE output
             // But realistically, floating input = false.
-            if (inputs.length === 0) return true;
-            return !inputs[0];
+            if (inputValues.length === 0) return true;
+            return !inputValues[0];
         }
         if (type === 'xor-gate') {
             // True if odd number of true inputs
-            return inputs.filter(v => v).length % 2 === 1;
+            return inputValues.filter(v => v).length % 2 === 1;
+        }
+        if (type === 'nand-gate') {
+            // NAND = NOT (AND)
+            // If inputs < 2, assume FALSE for missing inputs? 
+            // Standard: NAND(1, 1) = 0. Else 1.
+            // If unconnected (0 inputs), usually output 1 (like NOT 0).
+            if (inputValues.length < 2) return true; // Treat missing as 0. 0 AND X = 0 -> NAND = 1.
+            return !inputValues.every(v => v === true);
+        }
+
+        if (type === 'd-latch') {
+            const enableEdges = incomingEdges.filter(e => e.targetHandle === 'enable');
+            const dataEdges = incomingEdges.filter(e => e.targetHandle === 'data');
+
+            const enableActive = enableEdges.some(e => nodeStates[e.source]);
+            const dataActive = dataEdges.some(e => nodeStates[e.source]);
+
+            // D-Latch Logic:
+            // If Enable is HIGH, Output follows Data (Transparent).
+            // If Enable is LOW, Output holds previous state.
+
+            // Note: node.data.active holds the PREVIOUS state because we initialized nodeState from it
+            // and haven't updated it for this node in this tick yet (unless we loop, but topological sort usually handles it).
+            // However, useLogicEngine calculates newState based on `nodeState`. 
+            // `nodeState[node.id]` currently holds the value from the previous tick (persisted start).
+
+            if (enableActive) {
+                return dataActive;
+            } else {
+                return nodeStates[node.id] || false; // Keep previous state
+            }
+        }
+
+        // Relay Logic
+        if (type === 'relay') {
+            // Needs two inputs: 'control' and 'signal'
+            // Support multiple connections to same handle (OR logic)
+            const controlEdges = incomingEdges.filter(e => e.targetHandle === 'control');
+            const signalEdges = incomingEdges.filter(e => e.targetHandle === 'signal');
+
+            const controlActive = controlEdges.some(e => nodeStates[e.source]);
+            const signalActive = signalEdges.some(e => nodeStates[e.source]);
+
+            // If control is active, output = signal. Else output = false (open circuit)
+            return controlActive && signalActive;
+        }
+
+        // Relay NC Logic (Normally Closed)
+        if (type === 'relay-nc') {
+            const controlEdges = incomingEdges.filter(e => e.targetHandle === 'control');
+            const signalEdges = incomingEdges.filter(e => e.targetHandle === 'signal');
+
+            const controlActive = controlEdges.some(e => nodeStates[e.source]); // If any control is hot, coil activates (opens circuit)
+            const signalActive = signalEdges.some(e => nodeStates[e.source]);
+
+            // Logic: (!Control) AND Signal
+            return !controlActive && signalActive;
         }
 
         // Output components (sink)
         // They are strictly "active" if they receive ANY high signal.
         if (type === 'light' || type === 'display') {
-            return inputs.some(v => v === true);
+            return inputValues.some(v => v === true);
         }
 
         // Pass-through or other
@@ -80,8 +143,13 @@ export const useLogicEngine = () => {
         nodes.forEach(n => {
             if (n.type === 'switch' || n.type === 'push-button' || n.type === 'clock') {
                 nodeState[n.id] = n.data.active as boolean;
+            } else if (n.type === 'power-source') {
+                nodeState[n.id] = true;
             } else {
-                nodeState[n.id] = false; // Default off
+                // SEQUENTIAL LOGIC FIX:
+                // Initialize with current state to allow memory/feedback loops.
+                // If undefined, default to false.
+                nodeState[n.id] = (n.data.active as boolean) || false;
             }
         });
 
@@ -97,16 +165,13 @@ export const useLogicEngine = () => {
                 // Skip sources, their state is fixed by user interaction
                 if (node.type === 'switch' || node.type === 'push-button' || node.type === 'clock') continue;
 
-                // Get values of incoming edges
-                const inputs = (incomingEdges[node.id] || []).map(edge => {
-                    // An edge carries the signal of its source node
-                    const sourceActive = nodeState[edge.source];
-                    // Update edge visual state map while we are here
-                    edgeState[edge.id] = sourceActive;
-                    return sourceActive;
+                const currentIncomingEdges = incomingEdges[node.id] || [];
+                // Update edge visual state map while we are here
+                currentIncomingEdges.forEach(edge => {
+                    edgeState[edge.id] = nodeState[edge.source];
                 });
 
-                const newState = evaluateNode(node, inputs);
+                const newState = evaluateNode(node, currentIncomingEdges, nodeState);
 
                 if (nodeState[node.id] !== newState) {
                     nodeState[node.id] = newState;

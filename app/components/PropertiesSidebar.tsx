@@ -17,11 +17,12 @@ const getNodeIcon = (type: string | undefined) => {
         case 'clock': return Clock;
         case 'gate': return Binary;
         case 'and-gate': return "/compuerta-and.png";
-        case 'or-gate': return "/compuerta-or.png"; // Image path
+        case 'or-gate': return "/compuerta-or.png";
         case 'not-gate': return "/compuerta-not.png";
         case 'xor-gate': return "/compuerta-xor.png";
         case 'light': return Lightbulb;
         case 'display': return Monitor;
+        case 'relay': return "/relay.png";
         default: return Settings;
     }
 };
@@ -84,7 +85,7 @@ export default function PropertiesSidebar({ selectedNode, onLabelChange, onDelet
                     </div>
                 </div>
 
-                {/* Label Input */}
+
                 <div>
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
                         LABEL
@@ -98,8 +99,7 @@ export default function PropertiesSidebar({ selectedNode, onLabelChange, onDelet
                     />
                 </div>
 
-                {/* State Display (Read-only for now or could be editable) */}
-                {/* We can show if it's Active or Inactive if that data exists */}
+
                 {typeof selectedNode.data.active !== 'undefined' && (
                     <div>
                         <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
