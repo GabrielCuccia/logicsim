@@ -32,6 +32,7 @@ export default function RootLayout({
       >
         {children}
         <Analytics />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4496141315470561" crossOrigin="anonymous"></script>
       </body>
     </html>
   );
