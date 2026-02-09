@@ -33,6 +33,10 @@ import {
     ClockNode,
     DisplayNode,
     RelayNode,
+    PowerSourceNode,
+    RelayNCNode,
+    NandGateNode,
+    DLatchNode,
 } from "../../components/CustomNodes";
 import Sidebar from "../../components/Sidebar";
 import PropertiesSidebar from "../../components/PropertiesSidebar";
@@ -52,6 +56,10 @@ const nodeTypes = {
     relay: RelayNode,
     light: LightNode,
     display: DisplayNode,
+    "power-source": PowerSourceNode,
+    "relay-nc": RelayNCNode,
+    "nand-gate": NandGateNode,
+    "d-latch": DLatchNode,
 };
 
 const edgeTypes = {
